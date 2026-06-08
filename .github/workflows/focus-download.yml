@@ -1,0 +1,44 @@
+name: Focus — download e extração
+
+on:
+  schedule:
+    # Toda segunda às 12h15 UTC (= 9h15 BRT).
+    - cron: "15 12 * * 1"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  baixar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout do repositório
+        uses: actions/checkout@v4
+
+      - name: Configurar Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Instalar dependências
+        run: python -m pip install -r requirements.txt
+
+      - name: Baixar o PDF do Focus
+        run: python src/baixar_focus.py
+
+      - name: Extrair o texto
+        run: python src/extrair_texto.py
+
+      - name: Commitar arquivos baixados
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/focus_*.pdf data/focus_*.txt
+          # Pula o commit se não há nada novo no stage.
+          if git diff --cached --quiet; then
+            echo "Nada novo para commitar."
+          else
+            git commit -m "Focus: download automático ($(date -u +%Y-%m-%d))"
+            git push
+          fi

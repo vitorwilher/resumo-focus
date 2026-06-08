@@ -1,0 +1,10 @@
+# Caches do Python
+__pycache__/
+.pytest_cache/
+*.pyc
+
+# Segredos
+.env
+
+# Nota: os resumos em output/focus/ são versionados de propósito
+# (entregável do projeto) e NÃO devem ser ignorados aqui.
