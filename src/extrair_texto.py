@@ -1,8 +1,11 @@
-"""Extrai o texto de um PDF do boletim Focus e salva como .txt (UTF-8).
+"""Extrai o texto de um PDF do Boletim Focus e salva como arquivo .txt.
+
+Lê o PDF com pdfplumber, concatena o texto de todas as páginas e grava o
+resultado em UTF-8, num .txt com o mesmo nome do PDF.
 
 Uso:
-    python src/extrair_texto.py                 # pega o PDF mais recente de data/
-    python src/extrair_texto.py --pdf caminho   # extrai de um PDF específico
+    python src/extrair_texto.py                 # usa o focus_*.pdf mais recente de data/
+    python src/extrair_texto.py --pdf caminho/para/arquivo.pdf
 """
 
 import argparse
@@ -13,62 +16,77 @@ import pdfplumber
 
 
 def extrair(pdf_path):
-    """Extrai o texto de todas as páginas do PDF e salva como .txt.
+    """Extrai o texto de `pdf_path` e salva num .txt de mesmo nome.
 
-    O arquivo de saída tem o mesmo nome do PDF, trocando a extensão para
-    .txt, gravado em UTF-8. Retorna o caminho do .txt gerado.
+    Abre o PDF com pdfplumber, junta o texto de todas as páginas (uma página
+    por bloco, separadas por uma linha em branco) e grava em UTF-8 trocando a
+    extensão .pdf por .txt.
+
+    Retorna o caminho (Path) do arquivo .txt gerado.
     """
     pdf_path = Path(pdf_path)
-    partes = []
 
+    # Coleta o texto de cada página numa lista; páginas sem texto extraível
+    # (ex.: imagens) entram como string vazia para não quebrar o join.
+    paginas = []
     with pdfplumber.open(pdf_path) as pdf:
         for pagina in pdf.pages:
-            # extract_text() devolve None em páginas sem texto; trocamos por "".
-            partes.append(pagina.extract_text() or "")
+            paginas.append(pagina.extract_text() or "")
 
-    # Junta as páginas separando por quebra de linha.
-    texto = "\n".join(partes)
+    # Junta as páginas separando-as por uma linha em branco.
+    texto = "\n\n".join(paginas)
 
-    # Mesmo nome do PDF, com extensão .txt.
+    # Mesmo nome do PDF, porém com extensão .txt.
     txt_path = pdf_path.with_suffix(".txt")
     txt_path.write_text(texto, encoding="utf-8")
 
     return txt_path
 
 
-def _pdf_mais_recente(pasta):
-    """Retorna o focus_*.pdf mais recente da pasta, ou None se não houver."""
+def pdf_mais_recente(pasta):
+    """Retorna o focus_*.pdf mais recente de `pasta`, ou None se não houver.
+
+    "Mais recente" é decidido pelo nome do arquivo: como a nomenclatura é
+    focus_AAAA-MM-DD.pdf, a ordem alfabética coincide com a ordem cronológica.
+    """
     pdfs = sorted(Path(pasta).glob("focus_*.pdf"))
-    # A nomenclatura focus_AAAA-MM-DD ordena cronologicamente como texto,
-    # então o último item é o mais recente.
     return pdfs[-1] if pdfs else None
 
 
 def main():
-    """CLI: extrai o texto de um PDF (informado ou o mais recente de data/)."""
+    """CLI: extrai o texto de um PDF específico ou do mais recente em data/."""
     parser = argparse.ArgumentParser(
-        description="Extrai o texto de um PDF do Focus e salva como .txt."
+        description="Extrai o texto de um PDF do Boletim Focus para um .txt."
     )
     parser.add_argument(
         "--pdf",
-        help="Caminho de um PDF específico. Se omitido, usa o mais recente de data/.",
+        help="Caminho de um PDF específico. Se omitido, usa o focus_*.pdf "
+        "mais recente da pasta data/.",
     )
     args = parser.parse_args()
 
+    # A pasta data/ fica na raiz do projeto (um nível acima de src/).
+    raiz = Path(__file__).resolve().parent.parent
+
     if args.pdf:
+        # Usa o PDF informado explicitamente na linha de comando.
         pdf_path = Path(args.pdf)
     else:
-        pdf_path = _pdf_mais_recente("data")
+        # Sem --pdf: procura o Focus mais recente já baixado em data/.
+        pdf_path = pdf_mais_recente(raiz / "data")
         if pdf_path is None:
             print(
                 "Nenhum PDF encontrado em data/. "
-                "Rode `python src/baixar_focus.py` primeiro.",
+                "Rode 'python src/baixar_focus.py' primeiro para baixar o Focus.",
                 file=sys.stderr,
             )
             return 1
 
     txt_path = extrair(pdf_path)
-    print(f"Texto extraído: {txt_path}")
+    tamanho_kb = txt_path.stat().st_size / 1024
+    print(f"PDF de origem: {pdf_path}")
+    print(f"Texto salvo:   {txt_path}")
+    print(f"Tamanho:       {tamanho_kb:.1f} KB")
     return 0
 
 

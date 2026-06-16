@@ -1,69 +1,88 @@
-# Boletim Focus — Pipeline
+# Projeto Boletim Focus
 
-Pipeline que baixa o boletim Focus do Banco Central do Brasil (PDF), extrai o
-texto e, numa automação agendada, gera um resumo executivo em markdown.
+Pipeline que **baixa o Boletim Focus** do Banco Central do Brasil (BCB),
+**extrai o texto** do PDF e, numa **automação agendada**, gera um **resumo
+executivo** que é **enviado por e-mail**.
 
-A divisão de responsabilidades é deliberada: **os scripts Python cuidam só de
-baixar e extrair** o texto; **o resumo é gerado por um agente lendo o texto
-extraído**. Nenhum script tenta interpretar números ou redigir o resumo — essa
-etapa é do agente, que se apoia exclusivamente no texto do PDF (nunca inventa
-um valor).
+## Como funciona
 
-## Estrutura
+O projeto tem uma divisão de responsabilidades importante:
+
+- **Os scripts Python só baixam e extraem.** [`src/baixar_focus.py`](src/baixar_focus.py)
+  busca o PDF mais recente no site do BCB e [`src/extrair_texto.py`](src/extrair_texto.py)
+  converte esse PDF em texto puro (`.txt`). Eles **não** interpretam nem
+  resumem nada.
+- **O resumo é escrito por um agente.** Na automação agendada, um agente
+  (Claude) **lê o texto extraído** e redige o resumo executivo em markdown.
+  Regra de ouro: o agente **nunca inventa número** — toda mediana ou valor
+  citado precisa estar presente no texto extraído do PDF.
+- **O resumo é enviado por e-mail** ao final da automação.
+
+## Fonte dos dados
+
+- **Página de referência:** <https://www.bcb.gov.br/publicacoes/focus>
+- **Padrão de URL do PDF:** `https://www.bcb.gov.br/content/focus/focus/R{AAAAMMDD}.pdf`
+
+O Focus é publicado, em regra, **toda segunda-feira**. Quando a segunda é
+feriado, o BCB publica no próximo dia útil; por isso o download parte da
+última segunda-feira e **recua dia a dia** até encontrar o PDF disponível.
+
+## Árvore de pastas
 
 ```
 .
-├── src/
-│   ├── baixar_focus.py     # baixa o PDF mais recente (com lógica de feriado)
-│   └── extrair_texto.py    # extrai o texto do PDF e salva como .txt
-├── tests/                  # testes (offline + um marcado como `network`)
-├── data/                   # PDFs e textos baixados (artefatos brutos)
+├── src/                       # código-fonte (só download e extração)
+│   ├── baixar_focus.py        # baixa o PDF mais recente do BCB
+│   └── extrair_texto.py       # extrai o texto do PDF para .txt
+├── tests/                     # testes automatizados (pytest)
+│   └── test_baixar_focus.py
+├── data/                      # PDFs e textos extraídos (insumo bruto)
 ├── output/
-│   └── focus/              # resumos executivos em markdown (entregável do agente)
+│   └── focus/                 # resumos em markdown (entregável final, versionado)
 ├── .github/
-│   └── workflows/          # automação agendada (download semanal)
-├── demo.py                 # roda o pipeline local: baixa + extrai
-├── requirements.txt        # dependências com versões fixas
-├── pytest.ini              # config do pytest + marker `network`
-└── CLAUDE.md               # briefing do projeto para o agente
+│   └── workflows/
+│       └── focus-download.yml # automação semanal (download + extração)
+├── demo.py                    # roda o pipeline localmente (baixar + extrair)
+├── requirements.txt
+├── pytest.ini
+└── CLAUDE.md                  # briefing do projeto
 ```
+
+## Convenções
+
+- **Nomenclatura:** `focus_AAAA-MM-DD` usando a **data da publicação**
+  (ex.: `focus_2026-06-08.pdf`, `focus_2026-06-08.txt`, `focus_2026-06-08.md`).
+- **`data/`** guarda os PDFs e textos extraídos (insumo bruto).
+- **`output/focus/`** guarda os resumos em markdown (entregável final).
 
 ## Como rodar localmente
 
-```bash
-python -m pip install -r requirements.txt
-python demo.py --abrir
-```
-
-O `demo.py` executa as duas etapas em sequência (baixa o Focus em `data/` e
-extrai o texto). A flag `--abrir` abre o `.txt` gerado no navegador padrão ao
-final.
-
-## Testes
+Requer Python 3. Recomenda-se um ambiente virtual:
 
 ```bash
-pytest                  # roda toda a suíte
-pytest -m "not network" # pula os testes que fazem download real
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
 ```
 
-Os testes de rede são marcados com `@pytest.mark.network`; rode só eles com
-`pytest -m network`.
+Rode o pipeline de ponta a ponta (baixa o Focus mais recente e extrai o texto):
 
-## Como o pipeline funciona (duas etapas)
+```bash
+python demo.py            # baixa e extrai
+python demo.py --abrir    # idem e abre o .txt no navegador padrão
+```
 
-O fluxo é dividido em duas etapas que rodam em lugares diferentes:
+Ou rode cada etapa separadamente:
 
-1. **Download e extração (GitHub Action).** Um workflow agendado baixa o PDF
-   do Focus e extrai o texto, versionando o resultado no repositório. O passo
-   de download precisa rodar de um ambiente cujo IP o BCB não bloqueie — o site
-   restringe acessos vindos de faixas de nuvem, então o runner que baixa tem de
-   estar nessa condição (ex.: runner self-hosted / IP liberado).
+```bash
+python src/baixar_focus.py     # baixa o PDF para data/
+python src/extrair_texto.py    # extrai o texto do PDF mais recente em data/
+```
 
-2. **Resumo (automação do agente).** A automação do agente **consome o texto já
-   pronto** (o `.txt` versionado pela etapa anterior) e gera o resumo executivo
-   em `output/focus/`. Ela não baixa nada: só lê o texto e escreve o markdown,
-   garantindo que todo número citado venha do texto extraído.
+## Como rodar os testes
 
-Essa separação mantém a parte sensível a rede (download) isolada da parte de
-geração de conteúdo (resumo), e permite reproduzir cada etapa de forma
-independente.
+```bash
+pytest -m "not network"   # testes offline (rápidos, sem download)
+pytest -m network         # teste de rede (faz o download real do BCB)
+pytest                    # todos os testes
+```

@@ -1,10 +1,21 @@
-# Caches do Python
-__pycache__/
-.pytest_cache/
-*.pyc
+# Artefatos do macOS
+.DS_Store
 
-# Segredos
+# Artefatos do Python
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Ambiente virtual
+.venv/
+
+# Variáveis de ambiente / segredos
 .env
 
-# Nota: os resumos em output/focus/ são versionados de propósito
-# (entregável do projeto) e NÃO devem ser ignorados aqui.
+# Materiais didáticos do guia (não fazem parte do projeto resumo-focus)
+guia-construir-projeto-focus-com-claude.html
+guia-construir-projeto-focus-com-claude.qmd
+guia-construir-projeto-focus-com-claude_files/
+
+# Atenção: output/focus/ é versionado DE PROPÓSITO (é o entregável final),
+# por isso NÃO entra neste .gitignore.

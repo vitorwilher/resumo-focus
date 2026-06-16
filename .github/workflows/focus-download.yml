@@ -1,44 +1,46 @@
-name: Focus — download e extração
+name: Focus - download e extração
 
+# Roda toda segunda-feira às 9h15 BRT (12h15 UTC) e também sob disparo manual.
 on:
   schedule:
-    # Toda segunda às 12h15 UTC (= 9h15 BRT).
+    # cron em UTC: 15 min, 12 h, qualquer dia do mês/mês, dia-da-semana 1 (segunda).
     - cron: "15 12 * * 1"
-  workflow_dispatch: {}
+  workflow_dispatch:
 
+# Necessário para o job conseguir commitar os arquivos de volta ao repositório.
 permissions:
   contents: write
 
 jobs:
-  baixar:
+  baixar-e-extrair:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout do repositório
         uses: actions/checkout@v4
 
-      - name: Configurar Python 3.12
+      - name: Configura o Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: "3.x"
 
-      - name: Instalar dependências
-        run: python -m pip install -r requirements.txt
+      - name: Instala as dependências
+        run: pip install -r requirements.txt
 
-      - name: Baixar o PDF do Focus
+      - name: Baixa o PDF do Focus
         run: python src/baixar_focus.py
 
-      - name: Extrair o texto
+      - name: Extrai o texto do PDF
         run: python src/extrair_texto.py
 
-      - name: Commitar arquivos baixados
+      - name: Commita os arquivos baixados de volta ao repositório
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add data/focus_*.pdf data/focus_*.txt
-          # Pula o commit se não há nada novo no stage.
-          if git diff --cached --quiet; then
-            echo "Nada novo para commitar."
+          # Só commita se houver de fato algo novo para versionar.
+          if git diff --staged --quiet; then
+            echo "Nenhum arquivo novo do Focus para commitar."
           else
-            git commit -m "Focus: download automático ($(date -u +%Y-%m-%d))"
+            git commit -m "Focus: download e extração automáticos"
             git push
           fi

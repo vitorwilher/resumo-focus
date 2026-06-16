@@ -1,0 +1,544 @@
+---
+title: "Construindo a Routine do Focus com o Claude Code"
+subtitle: "Do zero à automação: o projeto que você montou nos Passos 1–8 agora ganha vida e envia o resumo do Focus por e-mail sozinho, toda segunda"
+author: "Análise Macro"
+lang: pt-BR
+format:
+  html:
+    theme: cosmo
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    toc-title: '<a href="https://analisemacro.com.br/" target="_blank"><img src="https://analisemacro.com.br/wp-content/uploads/dlm_uploads/2021/10/logo_am.png" alt="Logotipo Análise Macro" width="150"></a>'
+    number-sections: false
+    code-fold: false
+    code-tools: true
+    code-copy: true
+    highlight-style: github
+    smooth-scroll: true
+    page-layout: article
+    self-contained: true
+execute:
+  echo: true
+  eval: false
+  warning: false
+  message: false
+---
+
+## A jornada deste guia
+
+```{=html}
+<style>
+::selection { background:#282f6b; color:#ffffff; }
+::-moz-selection { background:#282f6b; color:#ffffff; }
+</style>
+```
+
+Nas aulas anteriores você construiu, arquivo por arquivo, um projeto que baixa o boletim Focus do Banco Central, extrai o texto e prepara o terreno para um resumo. Tudo funcionando na sua máquina. **Mas ele ainda não faz nada sozinho** — alguém precisa rodar, ler, escrever e enviar.
+
+Este guia fecha a jornada: pega o projeto que você já tem (os **Passos 1 a 8**) e o transforma numa automação completa — um pipeline que, toda segunda de manhã, baixa o Focus, escreve o resumo e **dispara o e-mail para o time, sem você apertar nada**. É o salto de "um projeto que roda quando eu mando" para "um agente que trabalha sozinho".
+
+```{=html}
+<div style="font-family:'Segoe UI',sans-serif;display:flex;align-items:stretch;gap:0;margin:1.4rem 0;flex-wrap:wrap;justify-content:center;">
+  <div style="flex:1;min-width:240px;background:#f1f5f9;border:1px solid #dbe0ec;border-right:none;border-radius:14px 0 0 14px;padding:1.1rem 1.3rem;">
+    <div style="font-size:0.7rem;color:#64748b;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;">Passos 1–8 · você já fez</div>
+    <div style="font-weight:700;color:#334155;margin-top:0.35rem;font-size:1.08rem;">O projeto, na sua máquina</div>
+    <div style="color:#475569;margin-top:0.5rem;line-height:1.55;font-size:0.9rem;">
+      Scripts que baixam e extraem, testes, o briefing <code>CLAUDE.md</code> e o roteiro <code>routine-prompt.md</code>. Roda quando você manda — e termina num rascunho à espera do seu clique.
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;justify-content:center;background:#d97706;color:#fff;font-weight:800;font-size:0.82rem;padding:0 0.85rem;letter-spacing:0.04em;z-index:1;">AGORA</div>
+  <div style="flex:1;min-width:240px;background:linear-gradient(180deg,#1a1f5e,#282f6b);border-radius:0 14px 14px 0;padding:1.1rem 1.3rem;color:#fff;">
+    <div style="font-size:0.7rem;color:#fbbf24;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;">Passos 9–15 · esta aula</div>
+    <div style="font-weight:700;margin-top:0.35rem;font-size:1.08rem;">A automação, na nuvem</div>
+    <div style="color:#dfe2f1;margin-top:0.5rem;line-height:1.55;font-size:0.9rem;">
+      Ensinamos o projeto a enviar, publicamos no GitHub, ligamos a coleta e a Routine — e o e-mail passa a sair sozinho toda segunda, sem nenhum clique humano.
+    </div>
+  </div>
+</div>
+```
+
+::: {.callout-note}
+## Antes de começar
+
+Para refazer do zero, você precisa do **Claude Code** aberto numa pasta vazia e do **Python 3.10+** (`python --version`). Se você está continuando de onde a turma parou, já tem os Passos 1–8 prontos — pule direto para a seção **"A virada"** e siga do Passo 9.
+:::
+
+## Como usar os prompts
+
+Cada bloco "**Prompt**" é o texto que você cola na conversa do Claude Code. Os blocos "o que o Claude vai gerar" mostram o resultado — você não digita esse código, ele serve para conferir. Faça uma etapa de cada vez e espere o Claude terminar antes da próxima.
+
+## Mapa do caminho
+
+```{=html}
+<div style="font-family:'Segoe UI',sans-serif;max-width:820px;margin:1.2rem auto;border:1px solid #e5e7eb;border-radius:10px;padding:1rem 1.4rem;background:#fafafa;">
+  <div style="font-size:0.74rem;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:0.4rem;">Construir o projeto · Passos 1–8 (você já fez)</div>
+  <ol style="font-size:0.92rem;line-height:1.6;padding-left:1.2rem;">
+    <li><strong>A fundação</strong> — pastas e o <code>CLAUDE.md</code></li>
+    <li><strong>As dependências</strong> — <code>requirements.txt</code> e <code>pytest.ini</code></li>
+    <li><strong>O download</strong> — <code>src/baixar_focus.py</code></li>
+    <li><strong>A extração</strong> — <code>src/extrair_texto.py</code></li>
+    <li><strong>A cola</strong> — <code>demo.py</code> roda o pipeline na sua máquina</li>
+    <li><strong>A rede de segurança</strong> — <code>tests/test_baixar_focus.py</code></li>
+    <li><strong>Os arquivos que faltam</strong> — README, <code>.gitignore</code> e o Action de coleta</li>
+    <li><strong>O roteiro da Routine</strong> — <code>routine-prompt.md</code> (versão com rascunho)</li>
+  </ol>
+  <div style="font-size:0.74rem;color:#7c3aed;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;margin:0.8rem 0 0.4rem;">Automatizar de ponta a ponta · Passos 9–15 (esta aula)</div>
+  <ol start="9" style="font-size:0.92rem;line-height:1.6;padding-left:1.2rem;">
+    <li><strong>Ensinar o projeto a enviar</strong> — <code>src/enviar_email.py</code> (SMTP do Gmail)</li>
+    <li><strong>O segundo Action</strong> — <code>focus-enviar.yml</code>, que dispara o e-mail</li>
+    <li><strong>Atualizar o roteiro</strong> — o <code>routine-prompt.md</code> deixa de criar rascunho e passa a commitar o HTML</li>
+    <li><strong>Publicar no GitHub</strong> — subir o repositório e ligar os Actions</li>
+    <li><strong>As credenciais de envio</strong> — App Password do Gmail + Secrets do GitHub</li>
+    <li><strong>Conectar o Claude ao GitHub</strong> — o App e o conector MCP</li>
+    <li><strong>Criar a Routine</strong> — agendar com <code>/schedule</code></li>
+  </ol>
+</div>
+```
+
+A estrutura final da pasta:
+
+```
+meu-projeto/
+├── CLAUDE.md                          # briefing que o agente lê
+├── routine-prompt.md                  # os passos que a Routine executa
+├── README.md  ·  requirements.txt  ·  pytest.ini  ·  demo.py  ·  .gitignore
+├── .github/workflows/
+│   ├── focus-download.yml             # Action: baixa o PDF (segunda 9h15 BRT)
+│   └── focus-enviar.yml               # Action: envia o e-mail (no push do HTML)  ← novo
+├── src/
+│   ├── baixar_focus.py                # baixa o PDF
+│   ├── extrair_texto.py               # PDF → texto
+│   └── enviar_email.py                # envia o resumo HTML via SMTP  ← novo
+├── tests/test_baixar_focus.py
+├── data/                              # PDFs e .txt (gerados ao rodar)
+└── output/focus/                      # HTML do resumo gerado pela Routine
+```
+
+# Parte 1 — O projeto que você construiu (Passos 1–8)
+
+> Se a turma já fez estes passos, use esta parte só como conferência e vá para **"A virada"**. Para refazer do zero, siga os prompts.
+
+## Passo 1 — A fundação: pastas e o `CLAUDE.md`
+
+**Prompt:**
+
+```markdown
+Estou começando um projeto Python do zero nesta pasta vazia. O objetivo é
+baixar toda semana o boletim Focus do Banco Central (um PDF), extrair o
+texto e, mais tarde, gerar e entregar um resumo. Faça duas coisas:
+
+1. Crie a estrutura de pastas: src/, tests/, data/, output/focus/ e
+   .github/workflows/.
+2. Crie um CLAUDE.md na raiz com o briefing: objetivo (baixar o Focus toda
+   segunda, extrair o texto e preparar um resumo executivo); fonte (a página
+   https://www.bcb.gov.br/publicacoes/focus e o PDF
+   https://www.bcb.gov.br/content/focus/focus/R{AAAAMMDD}.pdf); convenções
+   (arquivos focus_AAAA-MM-DD; data/ guarda PDFs e textos; output/focus/
+   guarda os resumos); regras (nunca inventar número — toda mediana citada
+   deve estar no texto; quando segunda é feriado, o download retrocede dia a
+   dia até achar o PDF).
+
+Me mostre a árvore de pastas e o CLAUDE.md.
+```
+
+## Passo 2 — As dependências
+
+**Prompt:**
+
+```markdown
+Crie requirements.txt fixando requests 2.32.3, pdfplumber 0.11.4 e
+pytest 8.3.3. E um pytest.ini com um marker `network` (descrição: testes de
+rede, pulam com -m "not network") e testpaths apontando para tests.
+```
+
+## Passo 3 — O download: `baixar_focus.py`
+
+**Prompt:**
+
+```markdown
+Crie src/baixar_focus.py: uma função ultima_segunda(hoje) que retorna a
+segunda mais recente ESTRITAMENTE anterior a hoje; uma função baixar(dest)
+que parte da última segunda e tenta baixar R{AAAAMMDD}.pdf, recuando um dia
+por tentativa (até 7), validando os bytes %PDF, salvando focus_AAAA-MM-DD.pdf
+e retornando (data, caminho); use User-Agent de navegador e um main() que
+baixe para data/. Comente em português.
+```
+
+## Passo 4 — A extração: `extrair_texto.py`
+
+**Prompt:**
+
+```markdown
+Crie src/extrair_texto.py: uma função extrair(pdf_path) que abre o PDF com
+pdfplumber, junta o texto das páginas e salva um .txt de mesmo nome (UTF-8),
+retornando o caminho; um main() com --pdf opcional que, sem ele, usa o
+focus_*.pdf mais recente de data/. Comente em português.
+```
+
+## Passo 5 — A cola: `demo.py` (e o pipeline roda)
+
+**Prompt:**
+
+```markdown
+Crie demo.py na raiz: adiciona src/ ao path, importa baixar e extrair, baixa
+para data/, imprime "[1/2] PDF baixado..." e "[2/2] Texto extraído...", e
+aceita --abrir para abrir o .txt. Depois instale o requirements e rode
+`python demo.py --abrir`, me mostrando a saída.
+```
+
+```bash
+python -m pip install -r requirements.txt
+python demo.py --abrir
+```
+
+## Passo 6 — A rede de segurança: os testes
+
+**Prompt:**
+
+```markdown
+Crie tests/test_baixar_focus.py: cinco testes puros para ultima_segunda
+(quinta, terça, hoje-é-segunda recua uma semana, domingo, varredura de 60
+dias) e um teste @pytest.mark.network que baixa de verdade e valida o
+arquivo. Rode `pytest -m "not network"` e me mostre o resultado.
+```
+
+## Passo 7 — Os arquivos que faltam (e o Action de coleta)
+
+**Prompt:**
+
+```markdown
+Crie: README.md descrevendo o projeto; .gitignore (ignora __pycache__/,
+.pytest_cache/, *.pyc, .venv/, .env; comenta que output/focus/ é versionado);
+output/focus/.gitkeep; e .github/workflows/focus-download.yml — Action que
+roda toda segunda às 9h15 BRT (12h15 UTC) e por workflow_dispatch, faz
+checkout, instala o requirements, roda baixar_focus.py e extrair_texto.py e
+commita data/focus_*.{pdf,txt} de volta (permissão contents: write).
+```
+
+## Passo 8 — O roteiro da Routine: `routine-prompt.md`
+
+Aqui você criou o roteiro que a Routine executa. **Nesta versão (a da aula anterior), ela termina criando um rascunho de e-mail no Gmail** — um resumo pronto, à espera do seu clique para enviar. É exatamente esse último passo manual que vamos automatizar a partir de agora.
+
+````markdown
+Você está executando a Routine de resumo semanal do Focus. O download e a
+extração já foram feitos por um GitHub Action. Sua tarefa: ler o .txt mais
+recente de data/, gerar um resumo em HTML com a logo da Análise Macro e
+deixá-lo como rascunho de e-mail no Gmail.
+
+[localizar .txt → checar frescor → sanity check (IPCA/Selic/PIB) → escrever
+resumo executivo + 3 revisões → montar HTML em output/focus/ → criar rascunho
+pela ferramenta create_draft]
+
+Nunca invente número.
+````
+
+::: {.callout-tip}
+## Onde você está agora
+
+Com os Passos 1–8 prontos, o projeto roda na sua máquina e a Routine sabe montar o resumo — **mas ainda para num rascunho**. A partir daqui, automatizamos o que falta: o envio de verdade e o agendamento sem você no meio.
+:::
+
+# A virada: do manual ao automático
+
+Antes de continuar codando, vale parar e olhar o todo. Você construiu várias peças nos Passos 1–8; agora precisa enxergar **como elas se conectam** e **o que falta para o processo rodar sozinho**. Este é o coração da jornada — sair de "peças que rodam quando eu mando" para "um sistema que trabalha sozinho toda segunda".
+
+::: {.callout-tip}
+## Abra o diagrama da visão macro
+
+O arquivo **`diagrama-visao-macro.excalidraw`** (na raiz do projeto) traz essa visão em duas camadas: em cima, **o que você construiu**; embaixo, **como isso roda automático**. Abra no VS Code (extensão Excalidraw) ou no excalidraw.com e use-o para guiar a explicação.
+:::
+
+## O que cada peça que você construiu faz no fluxo automático
+
+```{=html}
+<div style="font-family:'Segoe UI',sans-serif;max-width:860px;margin:1.2rem auto;">
+  <table style="width:100%;border-collapse:collapse;font-size:0.9rem;">
+    <tr style="background:#282f6b;color:#fff;">
+      <td style="padding:0.5rem 0.8rem;border-radius:8px 0 0 0;">Peça (Passo)</td>
+      <td style="padding:0.5rem 0.8rem;">Papel no fluxo automático</td>
+    </tr>
+    <tr style="background:#f8f9fc;"><td style="padding:0.5rem 0.8rem;"><code>baixar_focus.py</code> + <code>extrair_texto.py</code> (3–4)</td><td style="padding:0.5rem 0.8rem;">o <b>Action de coleta</b> os roda toda segunda 9h15 e deixa o <code>.txt</code> no repo</td></tr>
+    <tr><td style="padding:0.5rem 0.8rem;"><code>CLAUDE.md</code> (1) + <code>routine-prompt.md</code> (8)</td><td style="padding:0.5rem 0.8rem;">são o briefing e o roteiro que a <b>Routine</b> lê para escrever o resumo</td></tr>
+    <tr style="background:#f8f9fc;"><td style="padding:0.5rem 0.8rem;">Action de coleta (7)</td><td style="padding:0.5rem 0.8rem;">a primeira metade da automação, já no ar quando publicarmos</td></tr>
+    <tr><td style="padding:0.5rem 0.8rem;"><b>o que falta</b></td><td style="padding:0.5rem 0.8rem;">ensinar o projeto a <b>enviar</b> (Passo 9), um <b>Action de envio</b> (10), e fazer a Routine <b>publicar o HTML</b> em vez de rascunhar (11)</td></tr>
+  </table>
+</div>
+```
+
+## O fluxo, ponta a ponta
+
+```{=html}
+<div style="font-family:'Segoe UI',sans-serif;max-width:880px;margin:1.2rem auto;padding:0.4rem 0;">
+  <div style="display:flex;align-items:stretch;justify-content:center;gap:0.35rem;flex-wrap:wrap;">
+    <div style="flex:1;min-width:120px;background:#3498DB;color:#fff;border-radius:10px;padding:0.8rem 0.6rem;text-align:center;">
+      <div style="font-size:1.3rem;">⚙️</div><div style="font-weight:700;font-size:0.82rem;margin-top:0.3rem;">Action coleta</div>
+      <div style="font-size:0.7rem;opacity:0.92;">baixa+extrai · seg 9h15</div>
+    </div>
+    <div style="display:flex;align-items:center;color:#94a3b8;">→</div>
+    <div style="flex:1;min-width:120px;background:#fbbf24;color:#1e293b;border-radius:10px;padding:0.8rem 0.6rem;text-align:center;">
+      <div style="font-size:1.3rem;">🧠</div><div style="font-weight:700;font-size:0.82rem;margin-top:0.3rem;">Routine resume</div>
+      <div style="font-size:0.7rem;opacity:0.85;">commita o HTML · seg 10h</div>
+    </div>
+    <div style="display:flex;align-items:center;color:#94a3b8;">→</div>
+    <div style="flex:1;min-width:120px;background:#27AE60;color:#fff;border-radius:10px;padding:0.8rem 0.6rem;text-align:center;">
+      <div style="font-size:1.3rem;">📧</div><div style="font-weight:700;font-size:0.82rem;margin-top:0.3rem;">Action envia</div>
+      <div style="font-size:0.7rem;opacity:0.92;">SMTP · no push</div>
+    </div>
+    <div style="display:flex;align-items:center;color:#94a3b8;">→</div>
+    <div style="flex:1;min-width:120px;background:#1a1f5e;color:#fff;border-radius:10px;padding:0.8rem 0.6rem;text-align:center;">
+      <div style="font-size:1.3rem;">👥</div><div style="font-weight:700;font-size:0.82rem;margin-top:0.3rem;">Time recebe</div>
+      <div style="font-size:0.7rem;opacity:0.92;">automático</div>
+    </div>
+  </div>
+</div>
+```
+
+::: {.callout-important}
+## A decisão desta aula: o e-mail sai sozinho
+
+Na versão do Passo 8, a automação parava num **rascunho** — havia sempre um clique seu no fim. A partir daqui mudamos isso: o e-mail será **enviado automaticamente**, por um GitHub Action via SMTP do Gmail. Some o clique, some também a conferência humana — leia o callout de risco no Passo 9 antes de confiar números a um disparo automático.
+:::
+
+# Passo 9 — Ensinar o projeto a enviar: `enviar_email.py`
+
+O conector do Gmail do Claude só cria **rascunho** — não envia. Para o processo ficar 100% automático, criamos um script que **dispara** a mensagem pelo SMTP do Gmail. O corpo é o HTML que a Routine gera.
+
+O ponto sensível é a credencial: o envio precisa de uma **senha de app** do Gmail, que **nunca** pode ficar no código (o repositório é público). Por isso o script lê tudo de variáveis de ambiente — que no Passo 13 viram Secrets do GitHub.
+
+**Prompt:**
+
+```markdown
+Crie src/enviar_email.py, que envia o resumo HTML do Focus por e-mail via
+SMTP do Gmail. Requisitos:
+
+- NUNCA colocar credenciais no código. Ler de variáveis de ambiente:
+  FOCUS_SMTP_USER (remetente), FOCUS_SMTP_APP_PASSWORD (senha de app),
+  FOCUS_EMAIL_DEST (destinatários por vírgula) e FOCUS_EMAIL_BCC (opcional).
+- Uma função que acha o focus_*.html mais recente em output/focus/.
+- Montar e-mail com corpo HTML (e fallback texto), assunto padrão
+  "Resumo Focus — AAAA-MM-DD" derivado do nome, e enviar por
+  smtp.gmail.com:465 (SSL) com a senha de app.
+- main() com --html, --dest, --assunto e --dry-run (monta e mostra SEM enviar
+  e sem exigir credenciais — para testar).
+
+Comente em português e me mostre o arquivo.
+```
+
+```python
+import smtplib
+from email.message import EmailMessage
+
+def enviar(msg, usuario, senha):
+    with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=30) as smtp:
+        smtp.login(usuario, senha)
+        smtp.send_message(msg)
+```
+
+Teste sem enviar nada (e sem precisar das credenciais ainda):
+
+```bash
+python src/enviar_email.py --dry-run --dest "alguem@exemplo.com"
+```
+
+::: {.callout-warning}
+## O preço de não ter revisão humana
+
+Sem rascunho, **ninguém confere antes do disparo**. Se o modelo errar um número, o e-mail errado parte assim mesmo. Duas defesas: (1) mantenha rígidos os *sanity checks* do `routine-prompt.md`, que abortam o envio se o texto destoar; e (2) cadastre `FOCUS_EMAIL_BCC` com o **seu** e-mail, para ter sempre uma cópia. A regra "nunca inventar número" é o que segura a qualidade.
+:::
+
+# Passo 10 — O segundo Action: `focus-enviar.yml`
+
+Agora ligamos o gatilho do envio. Este Action dispara **quando a Routine publica um resumo** (push de um `focus_*.html`) e roda o `enviar_email.py` com as credenciais vindas dos Secrets.
+
+**Prompt:**
+
+```markdown
+Crie .github/workflows/focus-enviar.yml: um Action que dispara no push de um
+output/focus/focus_*.html na branch main (e por workflow_dispatch). Faz
+checkout, instala o requirements e roda src/enviar_email.py, passando como
+variáveis de ambiente os Secrets FOCUS_SMTP_USER, FOCUS_SMTP_APP_PASSWORD,
+FOCUS_EMAIL_DEST e FOCUS_EMAIL_BCC.
+```
+
+```yaml
+name: Focus - enviar resumo por e-mail
+on:
+  push:
+    branches: [main]
+    paths:
+      - "output/focus/focus_*.html"
+  workflow_dispatch:
+jobs:
+  enviar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.x" }
+      - run: pip install -r requirements.txt
+      - env:
+          FOCUS_SMTP_USER: ${{ secrets.FOCUS_SMTP_USER }}
+          FOCUS_SMTP_APP_PASSWORD: ${{ secrets.FOCUS_SMTP_APP_PASSWORD }}
+          FOCUS_EMAIL_DEST: ${{ secrets.FOCUS_EMAIL_DEST }}
+          FOCUS_EMAIL_BCC: ${{ secrets.FOCUS_EMAIL_BCC }}
+        run: python src/enviar_email.py
+```
+
+::: {.callout-note}
+## Por que o envio é um Action, e não a Routine
+
+A senha de app não pode viver numa Routine de forma segura, mas os **Secrets do GitHub** existem exatamente para isso — e o Action nunca expõe o valor, só o nome. Então o disparo roda no GitHub: a Routine publica o HTML, o push **aciona** este Action, ele envia. Cérebro (Routine) e carteiro (Action) separados.
+:::
+
+# Passo 11 — Atualizar o roteiro: de rascunho para envio automático
+
+Lembra do `routine-prompt.md` do Passo 8, que terminava criando um rascunho? Agora trocamos esse último passo: em vez de rascunhar, a Routine **commita o HTML** — e é esse push que aciona o Action de envio.
+
+**Prompt:**
+
+```markdown
+Atualize o routine-prompt.md: troque o passo final (que criava um rascunho
+com create_draft) por "publicar o HTML": fazer git add do
+output/focus/focus_AAAA-MM-DD.html, commit e git push para main, explicando
+que é esse push que dispara o Action de envio (focus-enviar.yml). Deixe claro
+que o destinatário, o remetente e a senha ficam nos Secrets do repositório,
+nunca no arquivo. Mantenha os passos de frescor, sanity check e "nunca
+invente número"; nas regras de parada, troque "pare sem enviar e-mail" por
+"pare sem commitar o HTML" (assim nada é enviado).
+```
+
+O passo final do roteiro passa a ser:
+
+````markdown
+7. Publique o HTML: `git add output/focus/focus_AAAA-MM-DD.html`, commit e
+   `git push` para `main`. É esse push que dispara o Action de envio
+   (`focus-enviar.yml`), que manda o e-mail via SMTP — você não cria rascunho
+   nem dispara nada à mão. Destinatário, remetente e senha ficam nos Secrets.
+````
+
+# Passo 12 — Publicar no GitHub
+
+Com todos os arquivos prontos (inclusive os novos do envio), publique o projeto.
+
+**Prompt:**
+
+```markdown
+Publique esta pasta no GitHub. Faça nesta ordem e me mostre a saída:
+1. git init e branch principal main.
+2. Primeiro commit com todos os arquivos, mensagem no imperativo.
+3. gh repo create resumo-focus --public --source=. --remote=origin --push
+4. Me mostre a URL do repositório.
+```
+
+Depois, dispare o Action de coleta à mão (aba **Actions** → **Focus - download e extração** → **Run workflow**) e confira que aparecem os `data/focus_*.{pdf,txt}` na `main`.
+
+# Passo 13 — As credenciais de envio: App Password + Secrets
+
+Esta é a etapa que liga o envio. Duas partes: gerar a senha no Google e guardá-la nos Secrets do GitHub.
+
+## Gerar a senha de app do Gmail
+
+1. Ligue a **verificação em 2 etapas** em `myaccount.google.com/security`.
+2. Em `myaccount.google.com/apppasswords`, crie uma senha (nome livre) e **guarde os 16 dígitos** — só aparecem uma vez.
+
+## Cadastrar os Secrets do GitHub
+
+No repositório: **Settings → Secrets and variables → Actions → New repository secret**. Crie quatro:
+
+| Secret | Valor |
+|---|---|
+| `FOCUS_SMTP_USER` | seu e-mail Gmail (remetente) |
+| `FOCUS_SMTP_APP_PASSWORD` | os 16 dígitos da senha de app |
+| `FOCUS_EMAIL_DEST` | destinatário(s), separados por vírgula |
+| `FOCUS_EMAIL_BCC` | (opcional) seu e-mail, para receber cópia de tudo |
+
+Ou, pelo Claude Code, via `gh`:
+
+```bash
+gh secret set FOCUS_SMTP_USER         --repo SEU-USUARIO/resumo-focus
+gh secret set FOCUS_SMTP_APP_PASSWORD --repo SEU-USUARIO/resumo-focus
+gh secret set FOCUS_EMAIL_DEST        --repo SEU-USUARIO/resumo-focus
+gh secret set FOCUS_EMAIL_BCC         --repo SEU-USUARIO/resumo-focus
+```
+
+Para testar o envio sem esperar a Routine, dispare o `focus-enviar.yml` à mão (aba Actions → **Run workflow**) — ele envia o HTML mais recente de `output/focus/`.
+
+::: {.callout-important}
+## Os cliques no Google são só seus
+
+Gerar a senha de app acontece numa tela do Google, onde você confirma — nenhum script faz por você. Já os Secrets do GitHub o Claude Code cadastra pelo `gh`, mas o **valor** da senha quem informa é você.
+:::
+
+# Passo 14 — Conectar o Claude ao GitHub
+
+A Routine roda num servidor remoto e não conhece nada seu por padrão. Para ela **ler o repositório e commitar o HTML**, precisa de dois acessos ao GitHub: o **App** (a chave, em `github.com/apps/claude`, marcando só `resumo-focus`) e o **conector MCP** (as ferramentas, em `claude.ai` → Connectors → GitHub → Connect; se não aparecer, use a URL `https://api.githubcopilot.com/mcp`).
+
+::: {.callout-note}
+## O Gmail saiu de cena
+
+Como o envio agora é feito pelo Action (com SMTP), **a Routine não precisa mais do conector do Gmail** — só do GitHub, com permissão de **push** (para commitar o HTML). Uma conexão a menos.
+:::
+
+::: {.callout-warning}
+## App e MCP andam juntos
+
+O App dá a permissão de entrar no repo; o conector MCP dá as ferramentas para agir. Um sem o outro não funciona — e, como a Routine precisa commitar, confirme que o App tem permissão de escrita no `resumo-focus`.
+:::
+
+# Passo 15 — Criar a Routine
+
+A Routine amarra tudo: o roteiro, o repositório, o horário e o conector do GitHub.
+
+**Prompt:**
+
+```markdown
+Crie uma Routine agendada com o /schedule:
+- Nome: resumo-focus
+- Repositório: seu-usuario/resumo-focus (com push habilitado)
+- Agenda (cron): 0 13 * * 1 — toda segunda às 13h UTC (10h BRT)
+- Modelo: claude-sonnet-4-6
+- Conector MCP: o github (ler o repo e dar push no HTML). Se não aparecer,
+  use https://api.githubcopilot.com/mcp
+- Prompt da Routine: use exatamente o conteúdo do routine-prompt.md — leia o
+  arquivo e use o texto dele.
+Antes de criar, me mostre o resumo da configuração para eu confirmar.
+```
+
+::: {.callout-note}
+## A sequência da segunda
+
+`0 13 * * 1` é segunda 10h BRT, 45 min depois do Action de coleta das 9h15. A folga garante que o `.txt` já esteja no repo. Então: 9h15 o Action coleta → 10h a Routine resume e commita o HTML → o push aciona o Action de envio → o e-mail chega.
+:::
+
+## O primeiro disparo
+
+Não espere até segunda. Dispare a Routine à mão (`/schedule run resumo-focus` ou *Run now* na web) e acompanhe: ela clona o repo, lê o `.txt`, faz o sanity check, monta o HTML, **commita e dá push**. O push aciona o `focus-enviar.yml`, que **envia o e-mail**.
+
+::: {.callout-tip}
+## Como saber que deu certo
+
+Duas coisas acontecem em sequência, sem você no meio: o HTML aparece commitado em `output/focus/`, e o e-mail chega na caixa do destinatário (e no seu, se configurou o BCC) — com a logo da Análise Macro e cada número saindo do `.txt`. Da segunda seguinte, roda sozinho.
+:::
+
+# O fim da jornada
+
+Você partiu de uma pasta vazia e chegou a um sistema que trabalha sozinho. As peças que construiu nos Passos 1–8 — os scripts, o briefing, o roteiro — não mudaram de natureza; ganharam **um motor que as aciona toda segunda** e **uma entrega que sai sem você**.
+
+```{=html}
+<div style="font-family:'Segoe UI',sans-serif;display:flex;align-items:stretch;gap:0;margin:1.4rem 0;flex-wrap:wrap;justify-content:center;">
+  <div style="flex:1;min-width:250px;background:linear-gradient(180deg,#047857,#059669);border-radius:14px 0 0 14px;padding:1.1rem 1.3rem;color:#fff;">
+    <div style="font-size:0.7rem;color:#d1fae5;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;">⚙️ Determinístico</div>
+    <div style="font-weight:700;margin-top:0.35rem;font-size:1.08rem;">Baixar, extrair, enviar</div>
+    <div style="color:#e7f6ef;margin-top:0.5rem;line-height:1.55;font-size:0.9rem;">Regra fixa: scripts Python nos Actions, rodando igual toda vez. Nenhum modelo de linguagem entra aqui.</div>
+  </div>
+  <div style="display:flex;align-items:center;justify-content:center;background:#d97706;color:#fff;font-weight:800;font-size:0.82rem;padding:0 0.85rem;">VS</div>
+  <div style="flex:1;min-width:250px;background:linear-gradient(180deg,#1a1f5e,#282f6b);border-radius:0 14px 14px 0;padding:1.1rem 1.3rem;color:#fff;">
+    <div style="font-size:0.7rem;color:#fbbf24;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;">🧠 Interpretação (LLM)</div>
+    <div style="font-weight:700;margin-top:0.35rem;font-size:1.08rem;">Resumir o boletim</div>
+    <div style="color:#dfe2f1;margin-top:0.5rem;line-height:1.55;font-size:0.9rem;">Ler texto livre, escolher o que importa, redigir. Trabalho da Routine — o agente que decide o próximo passo a cada execução.</div>
+  </div>
+</div>
+```
+
+Na segunda de manhã, com tudo no lugar, o resumo do Focus chega ao time **sem você apertar nada** — com a logo da Análise Macro e os números prontos para a reunião. Esse é o salto que esta jornada ensina: de escrever código que roda quando você manda, para construir um agente que trabalha sozinho.
